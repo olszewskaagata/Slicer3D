@@ -109,10 +109,74 @@ class ModExtWidget(ScriptedLoadableModuleWidget):
     self.applyButton.enabled = False
     parametersFormLayout.addRow(self.applyButton)
 
+    #
+    #LABORKA
+    #
+
+    newCollapsibleButton = ctk.ctkCollapsibleButton()
+    newCollapsibleButton.text = "Operacje na modelu"
+    self.layout.addWidget(newCollapsibleButton)
+    parametersFormLayout = qt.QFormLayout(newCollapsibleButton)
+
+    #
+    # model selector
+    #
+    self.modelSelector = slicer.qMRMLNodeComboBox()
+    self.modelSelector.nodeTypes = ["vtkMRMLModelNode"]
+    self.modelSelector.selectNodeUponCreation = True
+    self.modelSelector.addEnabled = True
+    self.modelSelector.removeEnabled = True
+    self.modelSelector.noneEnabled = True
+    self.modelSelector.showHidden = False
+    self.modelSelector.showChildNodeTypes = False
+    self.modelSelector.setMRMLScene( slicer.mrmlScene )
+    self.modelSelector.setToolTip( "Umozliwia wybor modelu zaladowanego do sceny" )
+    parametersFormLayout.addRow("Model: ", self.modelSelector)
+
+    #
+    # opacity value
+    #
+    self.imageOpacitySliderWidget = ctk.ctkSliderWidget()
+    self.imageOpacitySliderWidget.singleStep = 1
+    self.imageOpacitySliderWidget.minimum = 0
+    self.imageOpacitySliderWidget.maximum = 100
+    self.imageOpacitySliderWidget.value = 0
+    self.imageOpacitySliderWidget.setToolTip("Ustaw poziom przezroczystosci modelu w scenie 3D.")
+    parametersFormLayout.addRow("Przezroczystosc:", self.imageOpacitySliderWidget)
+
+  
+    #
+    # Visibility Button
+    #
+    self.visibilityButton = qt.QPushButton("Ukryj/wyswietl model")
+    self.visibilityButton.toolTip = "Ukryj/wyswietl model."
+    self.visibilityButton.enabled = True
+    parametersFormLayout.addRow(self.visibilityButton)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     # connections
     self.applyButton.connect('clicked(bool)', self.onApplyButton)
+    self.visibilityButton.connect('clicked(bool)', self.onVisibilityButton)
     self.inputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.outputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
+    self.modelSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelectModel)
+    self.imageOpacitySliderWidget.connect('valueChanged(double)',self.onSliderValueChanged)
 
     # Add vertical spacer
     self.layout.addStretch(1)
@@ -125,12 +189,23 @@ class ModExtWidget(ScriptedLoadableModuleWidget):
 
   def onSelect(self):
     self.applyButton.enabled = self.inputSelector.currentNode() and self.outputSelector.currentNode()
+    
+  def onSelectModel(self):
+    self.visibilityButton.enabled = self.modelSelector.currentNode() 
 
   def onApplyButton(self):
     logic = ModExtLogic()
     enableScreenshotsFlag = self.enableScreenshotsFlagCheckBox.checked
     imageThreshold = self.imageThresholdSliderWidget.value
     logic.run(self.inputSelector.currentNode(), self.outputSelector.currentNode(), imageThreshold, enableScreenshotsFlag)
+
+  def onSliderValueChanged(self):
+      logic = ModExtLogic()
+      logic.changeOpacity(self.modelSelector.currentNode(), self.imageOpacitySliderWidget.value)
+
+  def onVisibilityButton(self):
+      logic = ModExtLogic()
+      logic.showhide(self.modelSelector.currentNode())
 
 #
 # ModExtLogic
@@ -158,6 +233,19 @@ class ModExtLogic(ScriptedLoadableModuleLogic):
       logging.debug('hasImageData failed: no image data in volume node')
       return False
     return True
+    
+    
+  def hasModelData(self,modelNode):
+    """This is an example logic method that
+    returns true if the passed in volume
+    node has valid image data
+    """
+    if not modelNode:
+      logging.debug('hasModelData failed: no volume node')
+      return False
+    return True
+    
+  
 
   def isValidInputOutputData(self, inputVolumeNode, outputVolumeNode):
     """Validates if the output is not the same as input
@@ -232,7 +320,33 @@ class ModExtLogic(ScriptedLoadableModuleLogic):
     logging.info('Processing completed')
 
     return True
+    
+    
+  def changeOpacity(self, model, imageOpacity):
+      
+      if not self.hasModelData(model):
+        slicer.util.errorDisplay('Input model is empty')
+        return False      
+      
+     
+      
+      b = model.GetDisplayNode()
+      b.SetOpacity(imageOpacity/100)
+          
+  def showhide(self, model):
+      
+      if not self.hasModelData(model):
+        slicer.util.errorDisplay('Input model is empty')
+        return False 
+        
+      b = model.GetDisplayNode()
+      if(b.GetVisibility()==1):
+         b.SetVisibility(0)
+      else:
+          b.SetVisibility(1)
 
+ 
+   
 
 class ModExtTest(ScriptedLoadableModuleTest):
   """
